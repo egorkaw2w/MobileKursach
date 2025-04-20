@@ -1,18 +1,24 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+interface User {
+  fullName: string;
+  idRole?: number;
+}
+
 interface AuthContextType {
-  user: { fullName: string } | null;
+  user: User | null;
   userId: number | null;
-  login: (user: { fullName: string }, userId: number) => Promise<void>;
+  login: (user: User, userId: number) => Promise<void>;
   logout: () => Promise<void>;
   isAuthReady: boolean;
+  isCourierAdmin: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<{ fullName: string } | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [userId, setUserId] = useState<number | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
 
@@ -21,11 +27,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       try {
         const [storedUser, storedUserId] = await Promise.all([
           AsyncStorage.getItem('user'),
-          AsyncStorage.getItem('userId')
+          AsyncStorage.getItem('userId'),
         ]);
 
-        if (storedUser) setUser(JSON.parse(storedUser));
-        if (storedUserId) setUserId(parseInt(storedUserId));
+        if (storedUser) {
+          try {
+            const parsedUser = JSON.parse(storedUser);
+            if (parsedUser && typeof parsedUser === 'object') {
+              setUser(parsedUser);
+            }
+          } catch (e) {
+            console.error('Invalid user data in AsyncStorage:', e);
+          }
+        }
+        if (storedUserId) {
+          const parsedId = parseInt(storedUserId);
+          if (!isNaN(parsedId)) {
+            setUserId(parsedId);
+          }
+        }
       } catch (error) {
         console.error('Error loading auth data:', error);
       } finally {
@@ -36,40 +56,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     loadAuthData();
   }, []);
 
-  useEffect(() => {
-    const saveAuthData = async () => {
-      try {
-        if (user) {
-          await AsyncStorage.setItem('user', JSON.stringify(user));
-        } else {
-          await AsyncStorage.removeItem('user');
-        }
-
-        if (userId) {
-          await AsyncStorage.setItem('userId', userId.toString());
-        } else {
-          await AsyncStorage.removeItem('userId');
-        }
-      } catch (error) {
-        console.error('Error saving auth data:', error);
-      }
-    };
-
-    saveAuthData();
-  }, [user, userId]);
-
-  const login = async (newUser: { fullName: string }, newUserId: number) => {
-    setUser(newUser);
-    setUserId(newUserId);
+  const login = async (newUser: User, newUserId: number) => {
+    try {
+      setUser(newUser);
+      setUserId(newUserId);
+      await AsyncStorage.multiSet([
+        ['user', JSON.stringify(newUser)],
+        ['userId', newUserId.toString()],
+      ]);
+    } catch (error) {
+      console.error('Error saving auth data:', error);
+      throw new Error('Failed to login');
+    }
   };
 
   const logout = async () => {
-    setUser(null);
-    setUserId(null);
+    try {
+      setUser(null);
+      setUserId(null);
+      await AsyncStorage.multiRemove(['user', 'userId']);
+    } catch (error) {
+      console.error('Error during logout:', error);
+    }
+  };
+
+  const isCourierAdmin = () => {
+    return !!user && user.idRole === 6;
   };
 
   return (
-    <AuthContext.Provider value={{ user, userId, login, logout, isAuthReady }}>
+    <AuthContext.Provider value={{ user, userId, login, logout, isAuthReady, isCourierAdmin }}>
       {children}
     </AuthContext.Provider>
   );

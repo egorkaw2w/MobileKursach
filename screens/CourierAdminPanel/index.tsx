@@ -1,51 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
-  ActivityIndicator, 
-  Alert 
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { useAuth } from '../services/AuthContext';
-import { 
-  fetchOrders, 
-  updateOrderStatus, 
-  fetchOrderStatuses,
-  Order
-} from '../services/OrderService';
+import { fetchOrders, fetchOrderStatuses, updateOrderStatus } from '../../services/api';
+import { Order, OrderStatus } from '../../types';
 
-const CourierAdminPanel: React.FC = ({ navigation }) => {
+const CourierAdminPanel = () => {
   const [orders, setOrders] = useState<Order[]>([]);
-  const [statuses, setStatuses] = useState<any[]>([]);
+  const [statuses, setStatuses] = useState<OrderStatus[]>([]);
   const [loading, setLoading] = useState(true);
-  const { isCourierAdmin, logout } = useAuth();
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const checkAccess = () => {
-      if (!isCourierAdmin()) {
-        Alert.alert('Доступ запрещен', 'Вы будете перенаправлены');
-        navigation.navigate('MainApp');
-        return false;
-      }
-      return true;
-    };
-
-    if (!checkAccess()) return;
-
     const loadData = async () => {
       try {
         const [ordersData, statusesData] = await Promise.all([
+ 
           fetchOrders(),
-          fetchOrderStatuses()
+          fetchOrderStatuses(),
         ]);
-
-        setStatuses(statusesData);
         setOrders(ordersData);
-      } catch (error) {
-        console.error('Ошибка загрузки:', error);
-        Alert.alert('Ошибка', 'Не удалось загрузить данные');
+        setStatuses(statusesData);
+      } catch (err) {
+        setError('Не удалось загрузить данные');
+        console.error('Failed to load data:', err);
       } finally {
         setLoading(false);
       }
@@ -54,83 +31,73 @@ const CourierAdminPanel: React.FC = ({ navigation }) => {
     loadData();
   }, []);
 
-  const handleStatusChange = async (orderId: number, statusId: number) => {
+  const handleStatusChange = async (orderId: number, statusName: string) => {
     try {
-      await updateOrderStatus(orderId, statusId);
-      
-      setOrders(prev => prev.map(order => 
-        order.id === orderId 
-          ? { ...order, status: statuses.find(s => s.id === statusId) } 
-          : order
+      const updatedOrder = await updateOrderStatus(orderId, statusName);
+      setOrders(orders.map((order) =>
+        order.id === orderId ? updatedOrder : order
       ));
-      
-      Alert.alert('Успех', 'Статус обновлен');
-    } catch (error) {
-      console.error('Ошибка обновления:', error);
-      Alert.alert('Ошибка', 'Не удалось обновить статус');
+    } catch (err) {
+      console.error('Failed to update status:', err);
+      setError('Не удалось обновить статус');
     }
   };
 
   if (loading) {
     return (
-      <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#0000ff" />
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#1a1a2e" />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.error}>{error}</Text>
       </View>
     );
   }
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>Панель управления курьера</Text>
-      
-      {orders.map(order => (
-        <View key={order.id} style={styles.orderCard}>
-          <Text style={styles.orderNumber}>Заказ №{order.id}</Text>
-          
-          <View style={styles.section}>
-            <Text style={styles.label}>Клиент:</Text>
-            <Text>{order.user.fullName}</Text>
-            <Text>{order.user.phone}</Text>
-          </View>
+      <Text style={styles.title}>Управление заказами</Text>
 
-          <View style={styles.section}>
-            <Text style={styles.label}>Адрес:</Text>
-            <Text>{order.address.addressText}</Text>
-          </View>
+      {orders.length === 0 ? (
+        <Text style={styles.noOrders}>Нет заказов</Text>
+      ) : (
+        orders.map((order) => (
+          <View key={order.id} style={styles.orderCard}>
+            <Text style={styles.orderInfo}>Заказ #{order.id}</Text>
+            <Text style={styles.orderInfo}>Клиент: {order.user.fullName}</Text>
+            <Text style={styles.orderInfo}>Телефон: {order.user.phone}</Text>
+            <Text style={styles.orderInfo}>Адрес: {order.address.addressText}</Text>
+            <Text style={styles.orderInfo}>Общая сумма: {order.totalPrice} ₽</Text>
+            <Text style={styles.orderInfo}>Статус: {order.status}</Text>
+            <Text style={styles.orderInfo}>Создан: {new Date(order.createdAt).toLocaleString()}</Text>
+            <Text style={styles.orderInfo}>Элементы заказа:</Text>
+            {order.orderItems.map((item) => (
+              <Text key={item.id} style={styles.orderItem}>
+                - {item.menuItem.name} (x{item.quantity}): {item.priceAtOrder} ₽
+              </Text>
+            ))}
 
-          <View style={styles.section}>
-            <Text style={styles.label}>Статус:</Text>
             <Picker
-              selectedValue={order.status.id}
-              onValueChange={(value) => handleStatusChange(order.id, value)}
+              selectedValue={order.status}
+              onValueChange={(itemValue) => handleStatusChange(order.id, itemValue)}
               style={styles.picker}
-              dropdownIconColor="#000"
             >
-              {statuses.map(status => (
+              {statuses.map((status) => (
                 <Picker.Item
                   key={status.id}
                   label={status.name}
-                  value={status.id}
+                  value={status.name}
                 />
               ))}
             </Picker>
           </View>
-
-          <View style={styles.section}>
-            <Text style={styles.label}>Товары:</Text>
-            {order.orderItems.map(item => (
-              <View key={item.id} style={styles.productItem}>
-                <Text>{item.menuItem.name} x {item.quantity}</Text>
-                <Text>{item.priceAtOrder} ₽</Text>
-              </View>
-            ))}
-          </View>
-
-          <View style={styles.total}>
-            <Text style={styles.totalText}>Итого: {order.totalPrice} ₽</Text>
-          </View>
-        </View>
-      ))}
+        ))
+      )}
     </ScrollView>
   );
 };
@@ -138,70 +105,52 @@ const CourierAdminPanel: React.FC = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 15,
-    backgroundColor: '#f5f6fa',
-  },
-  loaderContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center'
+    padding: 16,
+    backgroundColor: '#f5f5f5',
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 20,
-    color: '#2c3e50',
-    textAlign: 'center'
+    textAlign: 'center',
   },
   orderCard: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 15,
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 3
+    shadowRadius: 4,
+    elevation: 2,
   },
-  orderNumber: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 10,
-    color: '#34495e'
-  },
-  section: {
-    marginBottom: 15,
-    paddingBottom: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#ecf0f1'
-  },
-  label: {
-    fontWeight: '600',
-    marginBottom: 5,
-    color: '#7f8c8d'
-  },
-  productItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 5
-  },
-  total: {
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#ecf0f1'
-  },
-  totalText: {
-    fontWeight: 'bold',
+  orderInfo: {
     fontSize: 16,
-    textAlign: 'right'
+    marginBottom: 8,
+  },
+  orderItem: {
+    fontSize: 14,
+    marginLeft: 10,
+    marginBottom: 4,
   },
   picker: {
-    backgroundColor: '#ecf0f1',
-    borderRadius: 5,
-    marginTop: 5
-  }
+    height: 50,
+    width: '100%',
+    marginTop: 10,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 4,
+  },
+  error: {
+    fontSize: 16,
+    color: 'red',
+    textAlign: 'center',
+  },
+  noOrders: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 20,
+  },
 });
 
 export default CourierAdminPanel;

@@ -54,8 +54,8 @@ const Login = () => {
           throw new Error('Неверный формат ответа от сервера');
         }
 
-        login({ fullName: data.fullName }, data.id);
-        navigation.navigate('Welcome'); // Перенаправление на Welcome
+        await login({ fullName: data.fullName, idRole: data.roleId }, data.id);
+        // Удаляем явное перенаправление, так как AppRouter обработает это
       } else {
         const errorData = JSON.parse(responseText);
         setError(errorData.error || 'Неверный логин или пароль!');
@@ -72,7 +72,6 @@ const Login = () => {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.logoContainer}>
-          {/* Замените на ваш компонент логотипа */}
           <Text style={styles.logoPlaceholder}>LOGO</Text>
         </View>
 
@@ -134,6 +133,7 @@ const Login = () => {
   );
 };
 
+// Стили остаются без изменений
 const styles = StyleSheet.create({
   container: {
     flex: 1,

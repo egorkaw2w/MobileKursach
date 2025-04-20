@@ -1,0 +1,62 @@
+.container {
+    padding: 16px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  
+  h1 {
+    font-size: 24px;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  
+  .order-card {
+    background: white;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+  
+  .order-card p {
+    font-size: 16px;
+    margin-bottom: 8px;
+  }
+  
+  .status-select {
+    width: 100%;
+    padding: 8px;
+    margin-top: 10px;
+    border-radius: 4px;
+    background: #f0f0f0;
+    font-size: 16px;
+  }
+  
+  .error {
+    color: red;
+    text-align: center;
+    font-size: 16px;
+    margin: 20px 0;
+  }
+  
+  .retry-btn {
+    display: block;
+    margin: 10px auto;
+    padding: 8px 16px;
+    background: #1a1a2e;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .retry-btn:hover {
+    background: #2c2c4e;
+  }
+  
+  .loading {
+    text-align: center;
+    font-size: 16px;
+    margin: 20px 0;
+  }

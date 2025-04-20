@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../services/AuthContext';
+import WelcomeImage from '../screens/WelcomeImage';
 
 const Login = () => {
   const [loginData, setLoginData] = useState({ login: '', password: '' });
@@ -55,7 +56,7 @@ const Login = () => {
         }
 
         await login({ fullName: data.fullName, idRole: data.roleId }, data.id);
-        // Удаляем явное перенаправление, так как AppRouter обработает это
+        navigation.navigate(data.roleId === 6 ? 'CourierAdmin' : 'Welcome');
       } else {
         const errorData = JSON.parse(responseText);
         setError(errorData.error || 'Неверный логин или пароль!');
@@ -133,7 +134,6 @@ const Login = () => {
   );
 };
 
-// Стили остаются без изменений
 const styles = StyleSheet.create({
   container: {
     flex: 1,

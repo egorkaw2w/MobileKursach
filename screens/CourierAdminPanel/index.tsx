@@ -1,46 +1,104 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+  TouchableOpacity,
+} from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { fetchOrders, fetchOrderStatuses, updateOrderStatus } from '../../services/api';
-import { Order, OrderStatus } from '../../types';
+import { fetchOrders, fetchOrderStatuses, updateOrderStatus, OrderStatus } from '../../services/api';
+import { Order } from '../../types';
+import { useAuth } from '../../services/AuthContext';
+import { useNavigation } from '@react-navigation/native';
 
 const CourierAdminPanel = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [statuses, setStatuses] = useState<OrderStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { isCourierAdmin, logout } = useAuth();
+  const navigation = useNavigation();
 
   useEffect(() => {
+    if (!isCourierAdmin()) {
+      console.log('Unauthorized access to courier admin');
+      navigation.replace('Login');
+      return;
+    }
+
     const loadData = async () => {
       try {
+        console.log('Loading orders and statuses...');
         const [ordersData, statusesData] = await Promise.all([
- 
           fetchOrders(),
           fetchOrderStatuses(),
         ]);
+        console.log('Orders loaded:', ordersData);
+        console.log('Statuses loaded:', statusesData);
         setOrders(ordersData);
         setStatuses(statusesData);
-      } catch (err) {
-        setError('Не удалось загрузить данные');
+      } catch (err: any) {
         console.error('Failed to load data:', err);
+        setError(
+          err.response?.status === 404
+            ? 'Эндпоинт заказов не найден!'
+            : `Не удалось загрузить данные: ${err.message}.`
+        );
       } finally {
         setLoading(false);
       }
     };
 
     loadData();
-  }, []);
+  }, [isCourierAdmin, navigation]);
 
   const handleStatusChange = async (orderId: number, statusName: string) => {
     try {
+      console.log(`Updating status for order ${orderId} to ${statusName}`);
       const updatedOrder = await updateOrderStatus(orderId, statusName);
-      setOrders(orders.map((order) =>
-        order.id === orderId ? updatedOrder : order
-      ));
-    } catch (err) {
+      console.log('Status updated:', updatedOrder);
+      setOrders(orders.map((order) => (order.id === orderId ? updatedOrder : order)));
+    } catch (err: any) {
       console.error('Failed to update status:', err);
-      setError('Не удалось обновить статус');
+      setError(`Не удалось обновить статус: ${err.message}.`);
     }
+  };
+
+  const handleLogout = () => {
+    try {
+      console.log('Logging out from courier admin');
+      logout();
+      navigation.replace('Login');
+    } catch (err) {
+      console.error('Failed to logout:', err);
+      setError('Не удалось выйти.');
+    }
+  };
+
+  const retryLoad = () => {
+    setError(null);
+    setLoading(true);
+    const loadData = async () => {
+      try {
+        const [ordersData, statusesData] = await Promise.all([
+          fetchOrders(),
+          fetchOrderStatuses(),
+        ]);
+        setOrders(ordersData);
+        setStatuses(statusesData);
+      } catch (err: any) {
+        setError(
+          err.response?.status === 404
+            ? 'Эндпоинт заказов не найден!'
+            : `Не удалось загрузить данные: ${err.message}.`
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
   };
 
   if (loading) {
@@ -55,32 +113,53 @@ const CourierAdminPanel = () => {
     return (
       <View style={styles.container}>
         <Text style={styles.error}>{error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={retryLoad}>
+          <Text style={styles.retryButtonText}>Повторить</Text>
+        </TouchableOpacity>
       </View>
     );
   }
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>Управление заказами</Text>
+      <View style={styles.header}>
+        <Text style={styles.title}>Управление заказами</Text>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Text style={styles.logoutButtonText}>Выйти</Text>
+        </TouchableOpacity>
+      </View>
 
       {orders.length === 0 ? (
-        <Text style={styles.noOrders}>Нет заказов</Text>
+        <Text style={styles.noOrders}>Нет заказов.</Text>
       ) : (
         orders.map((order) => (
           <View key={order.id} style={styles.orderCard}>
             <Text style={styles.orderInfo}>Заказ #{order.id}</Text>
-            <Text style={styles.orderInfo}>Клиент: {order.user.fullName}</Text>
-            <Text style={styles.orderInfo}>Телефон: {order.user.phone}</Text>
-            <Text style={styles.orderInfo}>Адрес: {order.address.addressText}</Text>
+            <Text style={styles.orderInfo}>
+              Клиент: {order.user?.fullName ?? 'Неизвестный клиент'}
+            </Text>
+            <Text style={styles.orderInfo}>
+              Телефон: {order.user?.phone ?? 'Нет телефона'}
+            </Text>
+            <Text style={styles.orderInfo}>
+              Адрес: {order.address?.addressText ?? 'Нет адреса'}
+            </Text>
             <Text style={styles.orderInfo}>Общая сумма: {order.totalPrice} ₽</Text>
             <Text style={styles.orderInfo}>Статус: {order.status}</Text>
-            <Text style={styles.orderInfo}>Создан: {new Date(order.createdAt).toLocaleString()}</Text>
+            <Text style={styles.orderInfo}>
+              Создан: {new Date(order.createdAt).toLocaleString()}
+            </Text>
             <Text style={styles.orderInfo}>Элементы заказа:</Text>
-            {order.orderItems.map((item) => (
-              <Text key={item.id} style={styles.orderItem}>
-                - {item.menuItem.name} (x{item.quantity}): {item.priceAtOrder} ₽
-              </Text>
-            ))}
+            {order.orderItems.length === 0 ? (
+              <Text style={styles.orderItem}>Нет элементов заказа</Text>
+            ) : (
+              order.orderItems.map((item) => (
+                <Text key={item.id} style={styles.orderItem}>
+                  - {item.menuItem?.name ?? 'Неизвестный товар'} (x{item.quantity}):{' '}
+                  {item.priceAtOrder} ₽
+                </Text>
+              ))
+            )}
 
             <Picker
               selectedValue={order.status}
@@ -108,11 +187,27 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: '#f5f5f5',
   },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 20,
     textAlign: 'center',
+  },
+  logoutButton: {
+    backgroundColor: '#ff4d4d',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  logoutButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   orderCard: {
     backgroundColor: 'white',
@@ -145,11 +240,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: 'red',
     textAlign: 'center',
+    marginBottom: 20,
   },
   noOrders: {
     fontSize: 16,
     textAlign: 'center',
     marginTop: 20,
+  },
+  retryButton: {
+    backgroundColor: '#1a1a2e',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignSelf: 'center',
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 

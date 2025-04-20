@@ -8,6 +8,9 @@ import Login from './components/Login';
 import Register from './components/Register';
 import MainAppRouter from './screens/MainAppRouter';
 import CourierAdminPanel from './screens/CourierAdminPanel';
+import MenuCollection from './screens/MenuCollection';
+import CategoryPage from './screens/CategoryPage';
+import Bin from './screens/Bin';
 
 const Stack = createStackNavigator();
 
@@ -24,7 +27,7 @@ const AppRouter = () => {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName={isCourierAdmin() ? 'CourierAdmin' : 'Welcome'}>
+      <Stack.Navigator>
         {isCourierAdmin() ? (
           <Stack.Screen
             name="CourierAdmin"
@@ -61,19 +64,36 @@ const AppRouter = () => {
               }}
             />
             <Stack.Screen
-              name="MainApp"
-              component={MainAppRouter}
-              options={{ headerShown: false }}
-            />
-            {/* Добавляем CourierAdmin для навигации, если потребуется */}
-            <Stack.Screen
-              name="CourierAdmin"
-              component={CourierAdminPanel}
+              name="MenuCollection"
+              component={MenuCollection}
               options={{
-                title: 'Панель курьера',
+                title: 'MenuCollection',
                 headerStyle: { backgroundColor: '#1a1a2e' },
                 headerTintColor: '#fff',
               }}
+            />
+            <Stack.Screen
+              name="CategoryPage"
+              component={CategoryPage}
+              options={{
+                title: 'CategoryPage',
+                headerStyle: { backgroundColor: '#1a1a2e' },
+                headerTintColor: '#fff',
+              }}
+            />
+            <Stack.Screen
+              name="Bin"
+              component={Bin}
+              options={{
+                title: 'Bin',
+                headerStyle: { backgroundColor: '#1a1a2e' },
+                headerTintColor: '#fff',
+              }}
+            />
+            <Stack.Screen
+              name="MainApp"
+              component={MainAppRouter}
+              options={{ headerShown: false }}
             />
           </>
         )}

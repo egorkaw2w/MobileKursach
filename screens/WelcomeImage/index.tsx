@@ -130,7 +130,7 @@ const WelcomeImage = () => {
           <View style={modalStyles.centeredView}>
             <View style={modalStyles.modalView}>
               <Text style={modalStyles.modalText}>При бронировании позвоните нам:</Text>
-              <Text style={modalStyles.phoneNumber}>+7 (123) 456-78-XX</Text>
+              <Text style={modalStyles.phoneNumber}>+7 (123) 456-78-90</Text>
               <TouchableOpacity style={modalStyles.button} onPress={closeModal}>
                 <Text style={modalStyles.buttonText}>Закрыть</Text>
               </TouchableOpacity>

@@ -1,23 +1,30 @@
-import axios from 'axios';
+import axios from 'axios'; // Исправлено: убрано 'sturdy '
 import { Order, OrderStatus } from '../types';
 
-const API_URL = 'http://strhzy.ru:8080/api'; // Укажите ваш реальный API
+const API_URL = 'http://strhzy.ru:8080/api';
+
+// Хардкод статусов
+export const ORDER_STATUSES: OrderStatus[] = [
+  { id: 1, name: 'Новый' },
+  { id: 2, name: 'В обработке' },
+  { id: 3, name: 'Доставлен' },
+  { id: 4, name: 'Отменен' },
+];
 
 // Настройка интерсептора для логирования ошибок
 axios.interceptors.response.use(
   (response) => response,
   (error) => {
-    console.error('Axios error:', error.response?.data, error.message);
+    console.error('Axios error, you son of a dead whore:', error.response?.data, error.message);
     return Promise.reject(error);
   }
 );
 
-// Кэширование статусов
-let cachedStatuses: OrderStatus[] | null = null;
-
 export const fetchOrders = async (): Promise<Order[]> => {
   try {
+    console.log('Fetching orders from:', `${API_URL}/orders`);
     const response = await axios.get<Order[]>(`${API_URL}/orders`);
+    console.log('Orders loaded:', JSON.stringify(response.data, null, 2));
     return response.data;
   } catch (error) {
     console.error('Ошибка загрузки заказов:', error);
@@ -27,12 +34,8 @@ export const fetchOrders = async (): Promise<Order[]> => {
 
 export const fetchOrderStatuses = async (): Promise<OrderStatus[]> => {
   try {
-    if (cachedStatuses) {
-      return cachedStatuses;
-    }
-    const response = await axios.get<OrderStatus[]>(`${API_URL}/order-statuses`);
-    cachedStatuses = response.data;
-    return response.data;
+    console.log('Returning hardcoded order statuses:', ORDER_STATUSES);
+    return ORDER_STATUSES;
   } catch (error) {
     console.error('Ошибка загрузки статусов:', error);
     throw new Error('Не удалось загрузить статусы');
@@ -44,11 +47,13 @@ export const updateOrderStatus = async (
   status: string
 ): Promise<Order> => {
   try {
+    console.log(`Updating status for order ${orderId} to ${status}`);
     const response = await axios.patch<Order>(
-      `${API_URL}/orders/${orderId}`,
+      `${API_URL}/orders/${orderId}/status`,
       { status },
       { headers: { 'Content-Type': 'application/json' } }
     );
+    console.log('Status updated:', response.data);
     return response.data;
   } catch (error) {
     console.error('Ошибка обновления статуса:', error);

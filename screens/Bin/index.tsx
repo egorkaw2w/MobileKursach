@@ -35,13 +35,16 @@ const Bin: React.FC = () => {
       }
 
       try {
+        console.log('[Bin] Fetching cart for userId:', userId);
         const cart = await getOrCreateCart(userId);
+        console.log('[Bin] Cart received:', cart);
         setCartId(cart.id);
         const items = await getCartItems(cart.id);
+        console.log('[Bin] Cart items received:', items);
         setCartItems(items);
-      } catch (err) {
-        setError("Ошибка загрузки корзины");
-        console.error(err);
+      } catch (err: any) {
+        console.error('[Bin] Error fetching cart:', err);
+        setError(err.message || "Ошибка загрузки корзины");
       } finally {
         setLoading(false);
       }
@@ -52,24 +55,29 @@ const Bin: React.FC = () => {
 
   const handleRemoveItem = async (itemId: number) => {
     try {
+      console.log('[Bin] Removing item:', itemId);
       await removeFromCart(itemId);
       setCartItems(prev => prev.filter(item => item.id !== itemId));
-    } catch (err) {
-      Alert.alert('Ошибка', 'Не удалось удалить товар');
+      Alert.alert('Успех', 'Товар удалён из корзины');
+    } catch (err: any) {
+      console.error('[Bin] Error removing item:', err);
+      Alert.alert('Ошибка', err.message || 'Не удалось удалить товар');
     }
   };
 
   const handleUpdateQuantity = async (itemId: number, newQuantity: number) => {
     if (newQuantity < 1) return;
     try {
+      console.log('[Bin] Updating quantity for item:', itemId, 'to:', newQuantity);
       await updateCartItemQuantity(itemId, newQuantity);
       setCartItems(prev =>
         prev.map(item =>
           item.id === itemId ? { ...item, quantity: newQuantity } : item
         )
       );
-    } catch (err) {
-      Alert.alert('Ошибка', 'Не удалось обновить количество');
+    } catch (err: any) {
+      console.error('[Bin] Error updating quantity:', err);
+      Alert.alert('Ошибка', err.message || 'Не удалось обновить количество');
     }
   };
 

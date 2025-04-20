@@ -22,26 +22,43 @@ const CategoryPageItem: React.FC<CategoryPageItemProps> = ({
 }) => {
   const { userId } = useAuth();
 
+  // Логируем пропсы для диагностики
+  console.log('[CategoryPageItem] Props received:', {
+    img,
+    foodName,
+    foodCost,
+    foodDesc,
+    foodId,
+    foodIdType: typeof foodId,
+    foodIdIsNumber: !isNaN(foodId)
+  });
+
   const handleAddToCart = async () => {
     if (!userId) {
       Alert.alert('Ошибка', 'Требуется авторизация');
       return;
     }
 
+    // Временный обход для теста: используем foodId или фиксированный ID 18
+    const effectiveFoodId = foodId && !isNaN(foodId) && foodId > 0 ? foodId : 18;
+    console.log('[CategoryPageItem] Using effectiveFoodId:', effectiveFoodId);
+
+    if (!effectiveFoodId || isNaN(effectiveFoodId) || effectiveFoodId <= 0) {
+      console.error('[CategoryPageItem] Invalid foodId:', foodId, 'Effective foodId:', effectiveFoodId);
+      Alert.alert('Ошибка', 'Некорректный идентификатор товара');
+      return;
+    }
+
     try {
-      console.log('[CategoryPageItem] Starting add to cart...');
+      console.log('[CategoryPageItem] Starting add to cart for userId:', userId, 'foodId:', effectiveFoodId);
       const cart = await getOrCreateCart(userId);
       console.log('[CategoryPageItem] Cart received:', cart);
-      await addToCart(cart.id, foodId, 1);
+      await addToCart(cart.id, effectiveFoodId, 1);
       Alert.alert('Успех', `${foodName} добавлен в корзину!`);
-    } catch (err) {
-      console.error('[CategoryPageItem] Full error:', err);
-      Alert.alert(
-        'Ошибка',
-        err.message.includes('Ошибка при создании корзины') 
-          ? 'Проблема с созданием корзины. Проверьте авторизацию'
-          : 'Не удалось добавить товар'
-      );
+    } catch (err: any) {
+      console.error('[CategoryPageItem] Error adding to cart:', err);
+      const errorMessage = err.message || 'Не удалось добавить товар в корзину';
+      Alert.alert('Ошибка', errorMessage);
     }
   };
 

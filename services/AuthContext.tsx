@@ -1,37 +1,33 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-interface User {
-  fullName: string;
-}
-
 interface AuthContextType {
-  user: User | null;
+  user: { fullName: string } | null;
   userId: number | null;
-  login: (user: User, userId: number) => Promise<void>;
+  login: (user: { fullName: string }, userId: number) => Promise<void>;
   logout: () => Promise<void>;
   isAuthReady: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{children: ReactNode}> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const [user, setUser] = useState<{ fullName: string } | null>(null);
   const [userId, setUserId] = useState<number | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
 
   useEffect(() => {
     const loadAuthData = async () => {
       try {
-        const [userData, id] = await Promise.all([
+        const [storedUser, storedUserId] = await Promise.all([
           AsyncStorage.getItem('user'),
           AsyncStorage.getItem('userId')
         ]);
-        
-        if(userData) setUser(JSON.parse(userData));
-        if(id) setUserId(parseInt(id));
-      } catch(error) {
-        console.error('Ошибка загрузки данных:', error);
+
+        if (storedUser) setUser(JSON.parse(storedUser));
+        if (storedUserId) setUserId(parseInt(storedUserId));
+      } catch (error) {
+        console.error('Error loading auth data:', error);
       } finally {
         setIsAuthReady(true);
       }
@@ -40,19 +36,36 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({ children }) => {
     loadAuthData();
   }, []);
 
-  const login = async (newUser: User, newUserId: number) => {
+  useEffect(() => {
+    const saveAuthData = async () => {
+      try {
+        if (user) {
+          await AsyncStorage.setItem('user', JSON.stringify(user));
+        } else {
+          await AsyncStorage.removeItem('user');
+        }
+
+        if (userId) {
+          await AsyncStorage.setItem('userId', userId.toString());
+        } else {
+          await AsyncStorage.removeItem('userId');
+        }
+      } catch (error) {
+        console.error('Error saving auth data:', error);
+      }
+    };
+
+    saveAuthData();
+  }, [user, userId]);
+
+  const login = async (newUser: { fullName: string }, newUserId: number) => {
     setUser(newUser);
     setUserId(newUserId);
-    await AsyncStorage.multiSet([
-      ['user', JSON.stringify(newUser)],
-      ['userId', newUserId.toString()]
-    ]);
   };
 
   const logout = async () => {
     setUser(null);
     setUserId(null);
-    await AsyncStorage.multiRemove(['user', 'userId']);
   };
 
   return (
@@ -64,8 +77,8 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({ children }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if(!context) {
-    throw new Error('useAuth должен использоваться внутри AuthProvider');
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 };
